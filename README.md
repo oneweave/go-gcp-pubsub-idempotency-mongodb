@@ -1,6 +1,6 @@
 # go-gcp-pubsub-idempotency-mongodb
 
-go-gcp-pubsub-idempotency-mongodb provides a MongoDB-backed Store implementation for [oneweave-go-pubsub-idempotency](https://github.com/oneweave/oneweave-go-pubsub-idempotency).
+go-gcp-pubsub-idempotency-mongodb provides a MongoDB-backed Store implementation for [go-gcp-pubsub-idempotency](https://github.com/oneweave/go-gcp-pubsub-idempotency).
 
 It implements the core Store contract:
 - `Claim` atomically transitions unknown IDs to `in_progress`.
@@ -25,7 +25,7 @@ import (
     "log"
     "time"
 
-    pubsubidempotency "github.com/oneweave/oneweave-go-pubsub-idempotency"
+    pubsubidempotency "github.com/oneweave/go-gcp-pubsub-idempotency"
     pubsubidempotencymongodb "github.com/oneweave/go-gcp-pubsub-idempotency-mongodb"
     "go.mongodb.org/mongo-driver/mongo"
 )
