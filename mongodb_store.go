@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	pubsubidempotency "github.com/oneweave/oneweave-go-pubsub-idempotency"
+	idempotency "github.com/oneweave/go-gcp-pubsub-idempotency"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -38,7 +38,7 @@ type singleResultDecoder interface {
 	Decode(v any) error
 }
 
-var _ pubsubidempotency.Store = (*Store)(nil)
+var _ idempotency.Store = (*Store)(nil)
 
 // NewStore creates a MongoDB-backed idempotency store.
 func NewStore(config Config) (*Store, error) {
@@ -62,7 +62,7 @@ func NewStore(config Config) (*Store, error) {
 }
 
 // Claim atomically transitions unknown IDs to in-progress in MongoDB.
-func (s *Store) Claim(ctx context.Context, messageID string) (pubsubidempotency.ClaimResult, error) {
+func (s *Store) Claim(ctx context.Context, messageID string) (idempotency.ClaimResult, error) {
 	id := strings.TrimSpace(messageID)
 	if id == "" {
 		return "", fmt.Errorf("message ID is required")
@@ -95,7 +95,7 @@ func (s *Store) Claim(ctx context.Context, messageID string) (pubsubidempotency.
 		return "", fmt.Errorf("claim %s: %w", id, err)
 	}
 	if result.MatchedCount > 0 || result.UpsertedCount > 0 {
-		return pubsubidempotency.ClaimResultStarted, nil
+		return idempotency.ClaimResultStarted, nil
 	}
 
 	return s.resolveState(ctx, id, now)
@@ -152,19 +152,19 @@ func (s *Store) Release(ctx context.Context, messageID string) error {
 	return nil
 }
 
-func (s *Store) resolveState(ctx context.Context, messageID string, now time.Time) (pubsubidempotency.ClaimResult, error) {
+func (s *Store) resolveState(ctx context.Context, messageID string, now time.Time) (idempotency.ClaimResult, error) {
 	doc, err := s.findStateDoc(ctx, messageID)
 	if err != nil {
 		return "", err
 	}
 
 	if doc.State == stateProcessed {
-		return pubsubidempotency.ClaimResultDuplicate, nil
+		return idempotency.ClaimResultDuplicate, nil
 	}
 
 	if doc.State == stateInProgress {
 		if doc.LeaseExpiresAt.IsZero() || doc.LeaseExpiresAt.After(now) {
-			return pubsubidempotency.ClaimResultInProgress, nil
+			return idempotency.ClaimResultInProgress, nil
 		}
 
 		// Lease has expired; try again so this caller can refresh claim ownership.
