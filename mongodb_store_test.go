@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	pubsubidempotency "github.com/oneweave/oneweave-go-pubsub-idempotency"
+	idempotency "github.com/oneweave/go-gcp-pubsub-idempotency"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.mongodb.org/mongo-driver/bson"
@@ -85,7 +85,7 @@ func TestClaim(t *testing.T) {
 
 		result, err := store.Claim(context.Background(), "m1")
 		require.NoError(t, err)
-		assert.Equal(t, pubsubidempotency.ClaimResultStarted, result)
+		assert.Equal(t, idempotency.ClaimResultStarted, result)
 	})
 
 	t.Run("returns started on upsert", func(t *testing.T) {
@@ -95,7 +95,7 @@ func TestClaim(t *testing.T) {
 		}
 		result, err := store.Claim(context.Background(), "m2")
 		require.NoError(t, err)
-		assert.Equal(t, pubsubidempotency.ClaimResultStarted, result)
+		assert.Equal(t, idempotency.ClaimResultStarted, result)
 	})
 
 	t.Run("wraps non-duplicate errors", func(t *testing.T) {
@@ -124,7 +124,7 @@ func TestClaim(t *testing.T) {
 
 		result, err := store.Claim(context.Background(), "m4")
 		require.NoError(t, err)
-		assert.Equal(t, pubsubidempotency.ClaimResultDuplicate, result)
+		assert.Equal(t, idempotency.ClaimResultDuplicate, result)
 	})
 
 	t.Run("duplicate key resolves to in progress with valid lease", func(t *testing.T) {
@@ -144,7 +144,7 @@ func TestClaim(t *testing.T) {
 
 		result, err := store.Claim(context.Background(), "m5")
 		require.NoError(t, err)
-		assert.Equal(t, pubsubidempotency.ClaimResultInProgress, result)
+		assert.Equal(t, idempotency.ClaimResultInProgress, result)
 	})
 }
 
