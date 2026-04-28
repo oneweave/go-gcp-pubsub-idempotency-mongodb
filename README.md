@@ -27,7 +27,7 @@ import (
 
     pubsubidempotency "github.com/oneweave/go-gcp-pubsub-idempotency"
     pubsubidempotencymongodb "github.com/oneweave/go-gcp-pubsub-idempotency-mongodb"
-    "go.mongodb.org/mongo-driver/mongo"
+    "go.mongodb.org/mongo-driver/v2/mongo"
 )
 
 func example(ctx context.Context, collection *mongo.Collection, messageID string) error {
@@ -62,7 +62,7 @@ func example(ctx context.Context, collection *mongo.Collection, messageID string
 
 ## Requirements
 
-- A MongoDB collection handle from `go.mongodb.org/mongo-driver/mongo`.
+- A MongoDB collection handle from `go.mongodb.org/mongo-driver/v2/mongo`.
 - A core guard from `github.com/oneweave/oneweave-go-pubsub-idempotency`.
 - Message IDs should be stable and unique for dedupe.
 

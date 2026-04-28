@@ -8,9 +8,9 @@ import (
 	"time"
 
 	idempotency "github.com/oneweave/go-gcp-pubsub-idempotency"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 const (
@@ -29,9 +29,9 @@ type Store struct {
 	collection   *mongo.Collection
 	leaseTimeout time.Duration
 	now          func() time.Time
-	updateOne    func(ctx context.Context, filter any, update any, opts ...*options.UpdateOptions) (*mongo.UpdateResult, error)
-	deleteOne    func(ctx context.Context, filter any, opts ...*options.DeleteOptions) (*mongo.DeleteResult, error)
-	findOne      func(ctx context.Context, filter any, opts ...*options.FindOneOptions) singleResultDecoder
+	updateOne    func(ctx context.Context, filter any, update any, opts ...options.Lister[options.UpdateOneOptions]) (*mongo.UpdateResult, error)
+	deleteOne    func(ctx context.Context, filter any, opts ...options.Lister[options.DeleteOneOptions]) (*mongo.DeleteResult, error)
+	findOne      func(ctx context.Context, filter any, opts ...options.Lister[options.FindOneOptions]) singleResultDecoder
 }
 
 type singleResultDecoder interface {
@@ -55,7 +55,7 @@ func NewStore(config Config) (*Store, error) {
 		now:          time.Now,
 		updateOne:    config.Collection.UpdateOne,
 		deleteOne:    config.Collection.DeleteOne,
-		findOne: func(ctx context.Context, filter any, opts ...*options.FindOneOptions) singleResultDecoder {
+		findOne: func(ctx context.Context, filter any, opts ...options.Lister[options.FindOneOptions]) singleResultDecoder {
 			return config.Collection.FindOne(ctx, filter, opts...)
 		},
 	}, nil
@@ -87,7 +87,7 @@ func (s *Store) Claim(ctx context.Context, messageID string) (idempotency.ClaimR
 		"$setOnInsert": bson.M{"created_at": now},
 	}
 
-	result, err := s.updateOne(ctx, filter, update, options.Update().SetUpsert(true))
+	result, err := s.updateOne(ctx, filter, update, options.UpdateOne().SetUpsert(true))
 	if err != nil {
 		if isDuplicateKeyError(err) {
 			return s.resolveState(ctx, id, now)

@@ -9,9 +9,9 @@ import (
 	idempotency "github.com/oneweave/go-gcp-pubsub-idempotency"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 type fakeSingleResult struct {
@@ -29,13 +29,13 @@ func newStubStore() *Store {
 	return &Store{
 		leaseTimeout: 5 * time.Minute,
 		now:          func() time.Time { return time.Date(2026, 4, 27, 12, 0, 0, 0, time.UTC) },
-		updateOne: func(context.Context, any, any, ...*options.UpdateOptions) (*mongo.UpdateResult, error) {
+		updateOne: func(context.Context, any, any, ...options.Lister[options.UpdateOneOptions]) (*mongo.UpdateResult, error) {
 			return &mongo.UpdateResult{}, nil
 		},
-		deleteOne: func(context.Context, any, ...*options.DeleteOptions) (*mongo.DeleteResult, error) {
+		deleteOne: func(context.Context, any, ...options.Lister[options.DeleteOneOptions]) (*mongo.DeleteResult, error) {
 			return &mongo.DeleteResult{}, nil
 		},
-		findOne: func(context.Context, any, ...*options.FindOneOptions) singleResultDecoder {
+		findOne: func(context.Context, any, ...options.Lister[options.FindOneOptions]) singleResultDecoder {
 			return fakeSingleResult{decode: func(v any) error { return mongo.ErrNoDocuments }}
 		},
 	}
@@ -77,7 +77,7 @@ func TestClaim(t *testing.T) {
 
 	t.Run("returns started on update match", func(t *testing.T) {
 		store := newStubStore()
-		store.updateOne = func(_ context.Context, filter any, _ any, _ ...*options.UpdateOptions) (*mongo.UpdateResult, error) {
+		store.updateOne = func(_ context.Context, filter any, _ any, _ ...options.Lister[options.UpdateOneOptions]) (*mongo.UpdateResult, error) {
 			f := filter.(bson.M)
 			assert.Equal(t, bson.M{"$eq": "m1"}, f["_id"])
 			return &mongo.UpdateResult{MatchedCount: 1}, nil
@@ -90,7 +90,7 @@ func TestClaim(t *testing.T) {
 
 	t.Run("returns started on upsert", func(t *testing.T) {
 		store := newStubStore()
-		store.updateOne = func(context.Context, any, any, ...*options.UpdateOptions) (*mongo.UpdateResult, error) {
+		store.updateOne = func(context.Context, any, any, ...options.Lister[options.UpdateOneOptions]) (*mongo.UpdateResult, error) {
 			return &mongo.UpdateResult{UpsertedCount: 1}, nil
 		}
 		result, err := store.Claim(context.Background(), "m2")
@@ -100,7 +100,7 @@ func TestClaim(t *testing.T) {
 
 	t.Run("wraps non-duplicate errors", func(t *testing.T) {
 		store := newStubStore()
-		store.updateOne = func(context.Context, any, any, ...*options.UpdateOptions) (*mongo.UpdateResult, error) {
+		store.updateOne = func(context.Context, any, any, ...options.Lister[options.UpdateOneOptions]) (*mongo.UpdateResult, error) {
 			return nil, errors.New("boom")
 		}
 		result, err := store.Claim(context.Background(), "m3")
@@ -111,10 +111,10 @@ func TestClaim(t *testing.T) {
 
 	t.Run("duplicate key resolves to duplicate", func(t *testing.T) {
 		store := newStubStore()
-		store.updateOne = func(context.Context, any, any, ...*options.UpdateOptions) (*mongo.UpdateResult, error) {
+		store.updateOne = func(context.Context, any, any, ...options.Lister[options.UpdateOneOptions]) (*mongo.UpdateResult, error) {
 			return nil, mongo.WriteException{WriteErrors: []mongo.WriteError{{Code: 11000}}}
 		}
-		store.findOne = func(context.Context, any, ...*options.FindOneOptions) singleResultDecoder {
+		store.findOne = func(context.Context, any, ...options.Lister[options.FindOneOptions]) singleResultDecoder {
 			return fakeSingleResult{decode: func(v any) error {
 				doc := v.(*stateDocument)
 				doc.State = stateProcessed
@@ -130,10 +130,10 @@ func TestClaim(t *testing.T) {
 	t.Run("duplicate key resolves to in progress with valid lease", func(t *testing.T) {
 		store := newStubStore()
 		now := store.now()
-		store.updateOne = func(context.Context, any, any, ...*options.UpdateOptions) (*mongo.UpdateResult, error) {
+		store.updateOne = func(context.Context, any, any, ...options.Lister[options.UpdateOneOptions]) (*mongo.UpdateResult, error) {
 			return nil, mongo.WriteException{WriteErrors: []mongo.WriteError{{Code: 11000}}}
 		}
-		store.findOne = func(context.Context, any, ...*options.FindOneOptions) singleResultDecoder {
+		store.findOne = func(context.Context, any, ...options.Lister[options.FindOneOptions]) singleResultDecoder {
 			return fakeSingleResult{decode: func(v any) error {
 				doc := v.(*stateDocument)
 				doc.State = stateInProgress
@@ -158,7 +158,7 @@ func TestComplete(t *testing.T) {
 
 	t.Run("update error is wrapped", func(t *testing.T) {
 		store := newStubStore()
-		store.updateOne = func(context.Context, any, any, ...*options.UpdateOptions) (*mongo.UpdateResult, error) {
+		store.updateOne = func(context.Context, any, any, ...options.Lister[options.UpdateOneOptions]) (*mongo.UpdateResult, error) {
 			return nil, errors.New("write failed")
 		}
 		err := store.Complete(context.Background(), "m1")
@@ -168,7 +168,7 @@ func TestComplete(t *testing.T) {
 
 	t.Run("matched update succeeds", func(t *testing.T) {
 		store := newStubStore()
-		store.updateOne = func(context.Context, any, any, ...*options.UpdateOptions) (*mongo.UpdateResult, error) {
+		store.updateOne = func(context.Context, any, any, ...options.Lister[options.UpdateOneOptions]) (*mongo.UpdateResult, error) {
 			return &mongo.UpdateResult{MatchedCount: 1}, nil
 		}
 		err := store.Complete(context.Background(), "m2")
@@ -177,10 +177,10 @@ func TestComplete(t *testing.T) {
 
 	t.Run("already processed succeeds", func(t *testing.T) {
 		store := newStubStore()
-		store.updateOne = func(context.Context, any, any, ...*options.UpdateOptions) (*mongo.UpdateResult, error) {
+		store.updateOne = func(context.Context, any, any, ...options.Lister[options.UpdateOneOptions]) (*mongo.UpdateResult, error) {
 			return &mongo.UpdateResult{}, nil
 		}
-		store.findOne = func(context.Context, any, ...*options.FindOneOptions) singleResultDecoder {
+		store.findOne = func(context.Context, any, ...options.Lister[options.FindOneOptions]) singleResultDecoder {
 			return fakeSingleResult{decode: func(v any) error {
 				doc := v.(*stateDocument)
 				doc.State = stateProcessed
@@ -193,10 +193,10 @@ func TestComplete(t *testing.T) {
 
 	t.Run("missing state returns explicit error", func(t *testing.T) {
 		store := newStubStore()
-		store.updateOne = func(context.Context, any, any, ...*options.UpdateOptions) (*mongo.UpdateResult, error) {
+		store.updateOne = func(context.Context, any, any, ...options.Lister[options.UpdateOneOptions]) (*mongo.UpdateResult, error) {
 			return &mongo.UpdateResult{}, nil
 		}
-		store.findOne = func(context.Context, any, ...*options.FindOneOptions) singleResultDecoder {
+		store.findOne = func(context.Context, any, ...options.Lister[options.FindOneOptions]) singleResultDecoder {
 			return fakeSingleResult{decode: func(v any) error { return mongo.ErrNoDocuments }}
 		}
 		err := store.Complete(context.Background(), "m4")
@@ -215,7 +215,7 @@ func TestRelease(t *testing.T) {
 
 	t.Run("delete error is wrapped", func(t *testing.T) {
 		store := newStubStore()
-		store.deleteOne = func(context.Context, any, ...*options.DeleteOptions) (*mongo.DeleteResult, error) {
+		store.deleteOne = func(context.Context, any, ...options.Lister[options.DeleteOneOptions]) (*mongo.DeleteResult, error) {
 			return nil, errors.New("delete failed")
 		}
 		err := store.Release(context.Background(), "m1")
