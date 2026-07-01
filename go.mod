@@ -5,7 +5,7 @@ go 1.25.0
 require (
 	github.com/oneweave/go-gcp-pubsub-idempotency v1.0.1
 	github.com/stretchr/testify v1.11.1
-	go.mongodb.org/mongo-driver/v2 v2.6.0
+	go.mongodb.org/mongo-driver/v2 v2.7.0
 )
 
 require (
